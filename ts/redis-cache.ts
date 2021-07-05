@@ -56,7 +56,7 @@ async function setToCache(data: any, resource: string, ttl_of_group = 300, group
     return
 }
 
-export async function delCache(resource: string, group?: string) {
+async function delCache(resource: string, group?: string) {
     group = group || resource;
     const result = await redis.hdel(group, resource);
     return;
