@@ -24,7 +24,7 @@ class TestUtil {
     }
 
     public static async updateUser(user: any) {
-        TestUtil.freshUserToCache(user)
+        await TestUtil.freshUserToCache(user)
         return true
     }
 
@@ -68,7 +68,7 @@ describe("redis-cache", () => {
         should.deepEqual(await getFromCache("test"), undefined)
     })
 
-    it.only("should be refresh", async () => {
+    it("should be refresh", async () => {
         await TestUtil.deleteUser({
             id: 'test'
         })
