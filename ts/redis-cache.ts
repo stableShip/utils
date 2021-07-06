@@ -13,6 +13,7 @@ export function useCache(resource: string, ttl_of_group = 300, group?: string): 
             let res = await originFunc.call(this, ...params);
             const cacheKey = getCacheKey(resource, originFunc, params)
             await setToCache(res, cacheKey, ttl_of_group, group)
+            return res
         }
     }
 }
@@ -23,6 +24,8 @@ export function useCacheDelete(resource: string, group?: string) {
         descriptor.value = async function (...params) {
             const cacheKey = getCacheKey(resource, originFunc, params)
             await delCache(cacheKey, group)
+            let res = await originFunc.call(this, ...params);
+            return res
         }
     }
 }
@@ -32,9 +35,11 @@ export function useCacheRefresh(resource: string, ttl_of_group = 300, group?: st
     return function (target: any, propertyKey: string, descriptor: TypedPropertyDescriptor<(...params: any[]) => any>) {
         let originFunc = descriptor.value!
         descriptor.value = async function (...params) {
-            let res = await originFunc.call(this, ...params);
             const cacheKey = getCacheKey(resource, originFunc, params)
+            await delCache(cacheKey, group)
+            let res = await originFunc.call(this, ...params);
             await setToCache(res, cacheKey, ttl_of_group, group)
+            return res
         }
     }
 }
