@@ -79,7 +79,7 @@ function getCacheKey(template: string, fun: Function, params: any) {
 }
 
 
-function getParams(func) {
+function getParams(func:Function) {
 
     // String representaation of the function code
     var str = func.toString();
@@ -102,7 +102,7 @@ function getParams(func) {
 
     var result = str.substring(start, end).split(", ");
 
-    var params = [];
+    var params: any = [];
 
     result.forEach(element => {
 
@@ -116,7 +116,7 @@ function getParams(func) {
     return params;
 }
 
-function interpolate(str: string, params) {
+function interpolate(str: string, params: any) {
     const names = Object.keys(params);
     const vals = Object.values(params);
     return new Function(...names, `return \`${str}\`;`)(...vals);
