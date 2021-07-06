@@ -39,7 +39,7 @@ export function useCacheRefresh(resource: string, ttl_of_group = 300, group?: st
     }
 }
 
-async function getFromCache(resource: string, group?: string) {
+export async function getFromCache(resource: string, group?: string) {
     group = group || resource;
     let data;
     // 获取缓存
