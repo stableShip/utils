@@ -1,17 +1,18 @@
 import Redis from 'ioredis'
+import _ from 'lodash'
 const redis = new Redis()
 
-
-export function useCache(resource: string, ttl_of_group = 300, group?: string) {
+export function useCache(resource: string, ttl_of_group = 300, group?: string): any {
     return function (target: any, propertyKey: string, descriptor: TypedPropertyDescriptor<(...params: any[]) => any>) {
         let originFunc = descriptor.value!
-        descriptor.value = async function (params) {
+        descriptor.value = async function (...params) {
             let data = await getFromCache(resource, group)
             if (data) {
                 return data
             }
-            let res = await originFunc.call(this, params);
-            await setToCache(res, resource, ttl_of_group, group)
+            let res = await originFunc.call(this, ...params);
+            const cacheKey = getCacheKey(resource, originFunc, params)
+            await setToCache(res, cacheKey, ttl_of_group, group)
         }
     }
 }
@@ -19,9 +20,9 @@ export function useCache(resource: string, ttl_of_group = 300, group?: string) {
 export function useCacheDelete(resource: string, group?: string) {
     return function (target: any, propertyKey: string, descriptor: TypedPropertyDescriptor<(...params: any[]) => any>) {
         let originFunc = descriptor.value!
-        descriptor.value = async function (params) {
-            await originFunc.call(this, params);
-            await delCache(resource, group)
+        descriptor.value = async function (...params) {
+            const cacheKey = getCacheKey(resource, originFunc, params)
+            await delCache(cacheKey, group)
         }
     }
 }
@@ -30,13 +31,13 @@ export function useCacheDelete(resource: string, group?: string) {
 export function useCacheRefresh(resource: string, ttl_of_group = 300, group?: string) {
     return function (target: any, propertyKey: string, descriptor: TypedPropertyDescriptor<(...params: any[]) => any>) {
         let originFunc = descriptor.value!
-        descriptor.value = async function (params) {
-            let res = await originFunc.call(this, params);
-            await setToCache(res, resource, ttl_of_group, group)
+        descriptor.value = async function (...params) {
+            let res = await originFunc.call(this, ...params);
+            const cacheKey = getCacheKey(resource, originFunc, params)
+            await setToCache(res, cacheKey, ttl_of_group, group)
         }
     }
 }
-
 
 async function getFromCache(resource: string, group?: string) {
     group = group || resource;
@@ -62,3 +63,56 @@ async function delCache(resource: string, group?: string) {
     return;
 }
 
+function getCacheKey(template: string, fun: Function, params: any) {
+    if (!_.includes(template, "$")) {
+        return template
+    }
+    const paramNames = getParams(fun)
+    const paramJson = _.zipObject(paramNames, params)
+    const cacheKey = interpolate(template, paramJson)
+    return cacheKey
+}
+
+
+function getParams(func) {
+
+    // String representaation of the function code
+    var str = func.toString();
+
+    // Remove comments of the form /* ... */
+    // Removing comments of the form //
+    // Remove body of the function { ... }
+    // removing '=>' if func is arrow function 
+    str = str.replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/\/\/(.)*/g, '')
+        .replace(/{[\s\S]*}/, '')
+        .replace(/=>/g, '')
+        .trim();
+
+    // Start parameter names after first '('
+    var start = str.indexOf("(") + 1;
+
+    // End parameter names is just before last ')'
+    var end = str.length - 1;
+
+    var result = str.substring(start, end).split(", ");
+
+    var params = [];
+
+    result.forEach(element => {
+
+        // Removing any default value
+        element = element.replace(/=[\s\S]*/g, '').trim();
+
+        if (element.length > 0)
+            params.push(element);
+    });
+
+    return params;
+}
+
+function interpolate(str: string, params) {
+    const names = Object.keys(params);
+    const vals = Object.values(params);
+    return new Function(...names, `return \`${str}\`;`)(...vals);
+}
