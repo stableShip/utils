@@ -2,7 +2,7 @@ import Redis from 'ioredis'
 import _ from 'lodash'
 const redis = new Redis()
 
-export function useCache(resource: string, ttl_of_group = 300, group?: string): any {
+export function useCache(resource: string, ttl_of_group = 300, group: string=''): any {
     return function (target: any, propertyKey: string, descriptor: TypedPropertyDescriptor<(...params: any[]) => any>) {
         let originFunc = descriptor.value!
         descriptor.value = async function (...params) {
@@ -11,19 +11,21 @@ export function useCache(resource: string, ttl_of_group = 300, group?: string): 
                 return data
             }
             let res = await originFunc.call(this, ...params);
-            const cacheKey = getCacheKey(resource, originFunc, params)
-            await setToCache(res, cacheKey, ttl_of_group, group)
+            resource = buildKey(resource, originFunc, params)
+            group = buildKey(group, originFunc, params)
+            await setToCache(res, resource, ttl_of_group, group)
             return res
         }
     }
 }
 
-export function useCacheDelete(resource: string, group?: string) {
+export function useCacheDelete(resource: string, group: string = "") {
     return function (target: any, propertyKey: string, descriptor: TypedPropertyDescriptor<(...params: any[]) => any>) {
         let originFunc = descriptor.value!
         descriptor.value = async function (...params) {
-            const cacheKey = getCacheKey(resource, originFunc, params)
-            await delCache(cacheKey, group)
+            resource = buildKey(resource, originFunc, params)
+            group = buildKey(group, originFunc, params)
+            await delCache(resource, group)
             let res = await originFunc.call(this, ...params);
             return res
         }
@@ -31,14 +33,15 @@ export function useCacheDelete(resource: string, group?: string) {
 }
 
 
-export function useCacheRefresh(resource: string, ttl_of_group = 300, group?: string) {
+export function useCacheRefresh(resource: string, ttl_of_group = 300, group: string="") {
     return function (target: any, propertyKey: string, descriptor: TypedPropertyDescriptor<(...params: any[]) => any>) {
         let originFunc = descriptor.value!
         descriptor.value = async function (...params) {
-            const cacheKey = getCacheKey(resource, originFunc, params)
-            await delCache(cacheKey, group)
+            resource = buildKey(resource, originFunc, params)
+            group = buildKey(group, originFunc, params)
+            await delCache(resource, group)
             let res = await originFunc.call(this, ...params);
-            await setToCache(res, cacheKey, ttl_of_group, group)
+            await setToCache(res, resource, ttl_of_group, group)
             return res
         }
     }
@@ -68,7 +71,7 @@ async function delCache(resource: string, group?: string) {
     return;
 }
 
-function getCacheKey(template: string, fun: Function, params: any) {
+function buildKey(template: string, fun: Function, params: any) {
     if (!_.includes(template, "$")) {
         return template
     }
